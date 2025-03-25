@@ -7,41 +7,44 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
-
-
 class PassageInoffensifController extends Controller
 {
     // Affiche la liste de tous les passages inoffensifs
     public function index(Request $request)
-{
-    $query = PassageInoffensif::query();
+    {
+        $query = PassageInoffensif::query();
 
-    // Filtrage par année sur la date d'entrée
-    if ($request->filled('year')) {
-        $query->whereYear('date_entree', $request->year);
+        // Filtrage par année sur la date d'entrée
+        if ($request->filled('year')) {
+            $query->whereYear('date_entree', $request->year);
+        }
+
+        // Filtrage par mois sur la date d'entrée
+        if ($request->filled('month')) {
+            $query->whereMonth('date_entree', $request->month);
+        }
+
+        // Filtrage par jour sur la date d'entrée
+        if ($request->filled('day')) {
+            $query->whereDay('date_entree', $request->day);
+        }
+
+        // Filtrage sur un intervalle de dates (date de début et date de fin) sur la date d'entrée
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('date_entree', [$request->start_date, $request->end_date]);
+        }
+
+        // Recherche full text sur le champ 'navire'
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where('navire', 'LIKE', '%' . $search . '%');
+        }
+
+        // Récupération des résultats paginés, triés par date d'entrée décroissante et conservation des paramètres
+        $passages = $query->orderBy('date_entree', 'desc')->paginate(50)->appends($request->all());
+
+        return view('passage_inoffensif.index', compact('passages'));
     }
-
-    // Filtrage par mois sur la date d'entrée
-    if ($request->filled('month')) {
-        $query->whereMonth('date_entree', $request->month);
-    }
-
-    // Filtrage par jour sur la date d'entrée
-    if ($request->filled('day')) {
-        $query->whereDay('date_entree', $request->day);
-    }
-
-    // Filtrage sur un intervalle de dates (date de début et date de fin) sur la date d'entrée
-    if ($request->filled('start_date') && $request->filled('end_date')) {
-        $query->whereBetween('date_entree', [$request->start_date, $request->end_date]);
-    }
-
-    // Récupération des résultats paginés, triés par date d'entrée décroissante
-    $passages = $query->orderBy('date_entree', 'desc')->paginate(50);
-
-    return view('passage_inoffensif.index', compact('passages'));
-}
-
 
     // Affiche le formulaire de création d'un nouveau passage inoffensif
     public function create()
@@ -122,18 +125,14 @@ class PassageInoffensifController extends Controller
                 $dateSortie = $dateSortieObj->format('Y-m-d');
 
                 // Conversion de l'encodage pour le nom du navire
-                // On détecte l'encodage parmi UTF-8, ISO-8859-1 et WINDOWS-1252
                 $encoding = mb_detect_encoding($navire, 'UTF-8, ISO-8859-1, WINDOWS-1252', true);
                 if ($encoding !== 'UTF-8') {
                     $navire = mb_convert_encoding($navire, 'UTF-8', $encoding);
                 }
-                // Nettoyage éventuel du BOM en début de chaîne
                 $navire = preg_replace('/^\xEF\xBB\xBF/', '', $navire);
 
-                // Debug
                 \Log::info("Insertion de la ligne $rowNumber : $dateEntree | $dateSortie | $navire");
 
-                // Enregistrement en base
                 PassageInoffensif::create([
                     'date_entree' => $dateEntree,
                     'date_sortie' => $dateSortie,
