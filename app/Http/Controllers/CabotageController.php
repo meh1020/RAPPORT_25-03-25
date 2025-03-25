@@ -11,38 +11,45 @@ class CabotageController extends Controller
 {
      // Affiche la liste de tous les enregistrements
      public function index(Request $request)
-{
-    // Initialisation de la requête sur le modèle Cabotage
-    $query = Cabotage::query();
+    {
+        // Initialisation de la requête sur le modèle Cabotage
+        $query = Cabotage::query();
 
-    // Filtrage par année
-    if ($request->filled('year')) {
-        $query->whereYear('date', $request->year);
+        // Filtrage par année
+        if ($request->filled('year')) {
+            $query->whereYear('date', $request->year);
+        }
+
+        // Filtrage par mois
+        if ($request->filled('month')) {
+            $query->whereMonth('date', $request->month);
+        }
+
+        // Filtrage par jour
+        if ($request->filled('day')) {
+            $query->whereDay('date', $request->day);
+        }
+
+        // Filtrage par intervalle de dates (date de début et date de fin)
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('date', [$request->start_date, $request->end_date]);
+        }
+        
+        // Recherche full text sur certains champs (ici 'provenance' et 'navires')
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function($q) use ($search) {
+                $q->where('provenance', 'LIKE', '%'.$search.'%')
+                ->orWhere('navires', 'LIKE', '%'.$search.'%');
+            });
+        }
+
+        // Récupération des résultats paginés (50 par page) avec conservation des paramètres de la requête
+        $cabotages = $query->orderBy('date', 'desc')->paginate(50)->appends($request->all());
+
+        return view('surveillance.cabotage.index', compact('cabotages'));
     }
 
-    // Filtrage par mois
-    if ($request->filled('month')) {
-        $query->whereMonth('date', $request->month);
-    }
-
-    // Filtrage par jour
-    if ($request->filled('day')) {
-        $query->whereDay('date', $request->day);
-    }
-
-    // Filtrage par intervalle de dates (date de début et date de fin)
-    if ($request->filled('start_date') && $request->filled('end_date')) {
-        $query->whereBetween('date', [$request->start_date, $request->end_date]);
-    }
-
-    // Récupération des résultats paginés, triés par date décroissante
-    $cabotages = $query->orderBy('date', 'desc')->paginate(50);
-
-    return view('surveillance.cabotage.index', compact('cabotages'));
-}
-
-
- 
      // Affiche le formulaire de création
      public function create()
      {
